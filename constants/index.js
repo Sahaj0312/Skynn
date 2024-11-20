@@ -1,3 +1,0 @@
-export const supabaseUrl = "https://rtztcztlrdvvimelkegt.supabase.co";
-export const supabaseAnonKey =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0enRjenRscmR2dmltZWxrZWd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzIxMDI4MTEsImV4cCI6MjA0NzY3ODgxMX0.rgUMpLiI7Zt6Xiz5DyUjEKo3IddLLEema96RhxtnUTA";
