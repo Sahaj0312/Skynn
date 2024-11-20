@@ -1,11 +1,10 @@
-import { StyleSheet, Text, View, Alert } from "react-native";
-import React, { useState } from "react";
+import { StyleSheet, Text, View, Alert, TextInput } from "react-native";
+import React, { useState, useRef } from "react";
 import ScreenWrapper from "../components/ScreenWrapper";
 import { StatusBar } from "expo-status-bar";
 import { theme } from "../constants/theme";
 import { hp, wp } from "../helpers/common";
 import Button from "../components/Button";
-import Input from "../components/Input";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../lib/supabase";
 
@@ -13,25 +12,45 @@ const VerifyEmail = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { email, name, password } = params;
-  const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const inputRefs = useRef([...Array(6)].map(() => React.createRef()));
+
+  const handleOtpChange = (value, index) => {
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      inputRefs.current[index + 1].current.focus();
+    }
+  };
+
+  const handleKeyPress = (e, index) => {
+    // Handle backspace
+    if (e.nativeEvent.key === "Backspace" && !otp[index] && index > 0) {
+      inputRefs.current[index - 1].current.focus();
+    }
+  };
 
   const verifyOtp = async () => {
-    if (!otp.trim()) {
-      Alert.alert("Verification", "Please enter the verification code");
+    const otpString = otp.join("");
+    if (otpString.length !== 6) {
+      Alert.alert(
+        "Verification",
+        "Please enter the complete verification code"
+      );
       return;
     }
 
     setLoading(true);
     const { data, error } = await supabase.auth.verifyOtp({
       email,
-      token: otp,
+      token: otpString,
       type: "signup",
       options: {
-        data: {
-          name,
-          password,
-        },
+        data: { name, password },
       },
     });
     setLoading(false);
@@ -53,10 +72,7 @@ const VerifyEmail = () => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        data: {
-          name,
-          password,
-        },
+        data: { name, password },
       },
     });
     setLoading(false);
@@ -65,6 +81,8 @@ const VerifyEmail = () => {
       Alert.alert("Error", error.message);
     } else {
       Alert.alert("Success", "New verification code sent!");
+      setOtp(["", "", "", "", "", ""]);
+      inputRefs.current[0].current.focus();
     }
   };
 
@@ -73,30 +91,49 @@ const VerifyEmail = () => {
       <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.title}>Enter Verification Code</Text>
-          <Text style={styles.description}>
-            We've sent a verification code to {email}. Please enter the code
-            below.
+          <View style={styles.header}>
+            <Text style={styles.title}>Please check your email</Text>
+            <Text style={styles.description}>We've sent a code to {email}</Text>
+          </View>
+
+          <View style={styles.otpContainer}>
+            {otp.map((digit, index) => (
+              <TextInput
+                key={index}
+                ref={inputRefs.current[index]}
+                style={styles.otpInput}
+                value={digit}
+                onChangeText={(value) => handleOtpChange(value, index)}
+                onKeyPress={(e) => handleKeyPress(e, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                selectTextOnFocus
+              />
+            ))}
+          </View>
+
+          <Text style={styles.resendText}>
+            Didn't get the code?{" "}
+            <Text style={styles.resendButton} onPress={resendOtp}>
+              Click to resend
+            </Text>
           </Text>
 
-          <Input
-            placeholder="Enter 6-digit code"
-            onChangeText={setOtp}
-            value={otp}
-            keyboardType="number-pad"
-            maxLength={6}
-            containerStyles={styles.otpInput}
-          />
-
-          <Button title="Verify Email" onPress={verifyOtp} loading={loading} />
-
-          <Button
-            title="Resend Code"
-            onPress={resendOtp}
-            buttonStyle={{ backgroundColor: "transparent" }}
-            textStyle={{ color: theme.colors.primary }}
-            hasShadow={false}
-          />
+          <View style={styles.buttonContainer}>
+            <Button
+              title="Cancel"
+              onPress={() => router.back()}
+              buttonStyle={styles.cancelButton}
+              textStyle={styles.cancelButtonText}
+              hasShadow={false}
+            />
+            <Button
+              title="Verify"
+              onPress={verifyOtp}
+              loading={loading}
+              buttonStyle={styles.verifyButton}
+            />
+          </View>
         </View>
       </View>
     </ScreenWrapper>
@@ -110,10 +147,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: wp(5),
     justifyContent: "center",
+    backgroundColor: "white",
   },
   content: {
-    gap: 20,
+    gap: 30,
     alignItems: "center",
+  },
+  header: {
+    alignItems: "center",
+    gap: 10,
   },
   title: {
     fontSize: hp(3),
@@ -125,11 +167,47 @@ const styles = StyleSheet.create({
     fontSize: hp(2),
     color: theme.colors.textLight,
     textAlign: "center",
-    marginBottom: 20,
+  },
+  otpContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 20,
   },
   otpInput: {
-    width: "60%",
-    alignSelf: "center",
-    marginVertical: 20,
+    width: wp(12),
+    height: wp(12),
+    borderWidth: 1,
+    borderRadius: 8,
+    borderColor: theme.colors.primary,
+    fontSize: hp(2.5),
+    textAlign: "center",
+    color: theme.colors.primary,
+    backgroundColor: "white",
+  },
+  resendText: {
+    fontSize: hp(1.8),
+    color: theme.colors.textLight,
+  },
+  resendButton: {
+    color: theme.colors.primary,
+    textDecorationLine: "underline",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: theme.colors.textLight,
+  },
+  cancelButtonText: {
+    color: theme.colors.text,
+  },
+  verifyButton: {
+    flex: 1,
   },
 });
